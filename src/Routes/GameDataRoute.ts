@@ -1,28 +1,20 @@
-import { FastifyInstance }
-    from "fastify";
+import { FastifyInstance } from "fastify";
+import fs from "fs";
+import crypto from "crypto";
+import "dotenv/config"
+import {GameDatabasePath} from "../ServerConfig";
 
-import fs
-    from "fs";
 
-import path
-    from "path";
-
-import crypto
-    from "crypto";
 
 // gamedata.db lives next to the auth server executable.
 // Drop your populated database here before shipping.
-const DB_PATH =
-    path.join(
-        path.dirname(Bun.main),
-        "gamedata.db");
 
 function getDbHash(): string | null
 {
-    if (!fs.existsSync(DB_PATH))
+    if (!fs.existsSync(GameDatabasePath))
         return null;
 
-    const data = fs.readFileSync(DB_PATH);
+    const data = fs.readFileSync(GameDatabasePath);
     return crypto
         .createHash("sha256")
         .update(data)
@@ -70,7 +62,7 @@ export async function GameDataRoute(
         },
         async (_request, reply) =>
         {
-            if (!DB_HASH || !fs.existsSync(DB_PATH))
+            if (!DB_HASH || !fs.existsSync(GameDatabasePath))
             {
                 return reply
                     .status(503)
@@ -78,7 +70,7 @@ export async function GameDataRoute(
             }
 
             const stream =
-                fs.createReadStream(DB_PATH);
+                fs.createReadStream(GameDatabasePath);
 
             return reply
                 .header("Content-Type",        "application/octet-stream")

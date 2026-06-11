@@ -1,13 +1,11 @@
 import path from "path";
 import { Database } from "bun:sqlite";
+import {AuthDatabasePath} from "../ServerConfig";
 
 // Resolve relative to the running executable/script so the DB always lands
 // in the same place regardless of what directory you launch from.
-const dbPath = path.join(
-    path.dirname(Bun.main),
-    "auth.db");
 
-export const db = new Database(dbPath);
+export const db = new Database(AuthDatabasePath);
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS accounts
@@ -41,4 +39,4 @@ function purgeExpiredSessions(): void
 purgeExpiredSessions();
 setInterval(purgeExpiredSessions, 60 * 60 * 1000);
 
-console.log(`Database Ready (${dbPath})`);
+console.log(`Database Ready (${AuthDatabasePath})`);
