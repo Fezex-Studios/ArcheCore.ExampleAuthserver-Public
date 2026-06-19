@@ -1,53 +1,32 @@
-import { FastifyInstance }
-    from "fastify";
+import { FastifyInstance } from "fastify";
+import { db }             from "../Database/Database";
+import { Config }         from "../ServerConfig";
 
-import { db }
-    from "../Database/Database";
+export async function ValidateSessionRoute(fastify: FastifyInstance) {
+    fastify.post("/validate-session", async (request, reply) => {
 
-export async function ValidateSessionRoute(
-    fastify: FastifyInstance)
-{
-    fastify.post(
-        "/validate-session",
-        {
-            // Internal endpoint — called by the world server only, not clients.
-            config: { rateLimit: false }
-        },
-        async request =>
-        {
-            const body =
-                request.body as any;
+        // ── Internal secret check ─────────────────────────────────────────────
+        // This endpoint is called by the WorldServer only, never by clients.
+        // The secret must match INTERNAL_SECRET in both .env files.
+        if (request.headers["x-internal-secret"] !== Config.internalSecret) {
+            return reply.status(403).send({ error: "Forbidden" });
+        }
 
-            const session: any =
-                db.prepare(`
-                    SELECT *
-                    FROM sessions
-                    WHERE token = ?
-                `).get(
-                    body.Token);
+        const body = request.body as any;
 
-            if (!session)
-            {
-                return {
-                    Valid: false
-                };
-            }
+        const session: any = db.prepare(`
+            SELECT * FROM sessions WHERE token = ?
+        `).get(body.Token);
 
-            if (new Date(session.expires_at) < new Date())
-            {
-                db.prepare(`
-                    DELETE FROM sessions
-                    WHERE token = ?
-                `).run(body.Token);
+        // Always delete — valid tokens are burned (one-shot), expired ones are cleaned up
+        if (session) {
+            db.prepare(`DELETE FROM sessions WHERE token = ?`).run(body.Token);
+        }
 
-                return {
-                    Valid: false
-                };
-            }
+        if (!session || new Date(session.expires_at) < new Date()) {
+            return { Valid: false };
+        }
 
-            return {
-                Valid:     true,
-                AccountId: session.account_id
-            };
-        });
+        return { Valid: true, AccountId: session.account_id };
+    });
 }

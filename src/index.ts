@@ -1,41 +1,27 @@
-import Fastify
-    from "fastify";
-
-import rateLimit
-    from "@fastify/rate-limit";
+import Fastify   from "fastify";
+import cors      from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
+import { FastifyRequest } from "fastify";
 
 import "./Database/Database";
 
-import {
-    RegisterRoute
-}
-    from "./Routes/RegisterRoute";
+import { RegisterRoute }        from "./Routes/RegisterRoute";
+import { LoginRoute }           from "./Routes/LoginRoute";
+import { ValidateSessionRoute } from "./Routes/ValidateSessionRoute";
+import { GameDataRoute }        from "./Routes/GameDataRoute";
 
-import {
-    LoginRoute
-}
-    from "./Routes/LoginRoute";
+const server = Fastify({ logger: true });
 
-import {
-    ValidateSessionRoute
-}
-    from "./Routes/ValidateSessionRoute";
+server.register(cors, {
+    origin:  true,
+    methods: ["GET", "POST"],
+});
 
-import {
-    GameDataRoute
-}
-    from "./Routes/GameDataRoute";
-
-const server =
-    Fastify({
-        logger: true
-    });
-
-// Rate limit all routes: 10 attempts per minute per IP.
-// Internal endpoints opt out via config: { rateLimit: false } on their route.
 server.register(rateLimit, {
     max:        10,
-    timeWindow: "1 minute"
+    timeWindow: "1 minute",
+    // allowList accepts a function — return true to skip rate limiting for that request
+    allowList: (request: FastifyRequest) => request.url === "/validate-session",
 });
 
 server.register(RegisterRoute);
@@ -44,11 +30,5 @@ server.register(ValidateSessionRoute);
 server.register(GameDataRoute);
 
 server
-    .listen({
-        port: 3000,
-        host: "0.0.0.0"
-    })
-    .then(() =>
-    {
-        console.log("Auth Server Ready");
-    });
+    .listen({ port: Number(process.env.PORT ?? 3000), host: "0.0.0.0" })
+    .then(() => console.log("Auth Server Ready"));

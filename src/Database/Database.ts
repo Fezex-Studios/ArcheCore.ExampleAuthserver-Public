@@ -1,9 +1,5 @@
-import path from "path";
 import { Database } from "bun:sqlite";
-import {AuthDatabasePath} from "../ServerConfig";
-
-// Resolve relative to the running executable/script so the DB always lands
-// in the same place regardless of what directory you launch from.
+import { AuthDatabasePath } from "../ServerConfig";
 
 export const db = new Database(AuthDatabasePath);
 
@@ -20,14 +16,23 @@ db.exec(`
     CREATE TABLE IF NOT EXISTS sessions
     (
         token      TEXT    PRIMARY KEY,
-        account_id INTEGER NOT NULL,
+        account_id INTEGER NOT NULL UNIQUE,   -- one active session per account, enforced by DB
         expires_at TEXT    NOT NULL
     )
 `);
 
-// Purge expired sessions on startup and every hour after that.
-function purgeExpiredSessions(): void
-{
+// Tracks consecutive failed login attempts per username for lockout
+db.exec(`
+    CREATE TABLE IF NOT EXISTS failed_logins
+    (
+        username      TEXT    PRIMARY KEY,
+        attempts      INTEGER NOT NULL DEFAULT 0,
+        locked_until  TEXT    -- NULL means not locked
+    )
+`);
+
+// Purge expired sessions on startup and every hour after that
+function purgeExpiredSessions(): void {
     const result = db
         .prepare(`DELETE FROM sessions WHERE expires_at < ?`)
         .run(new Date().toISOString());
